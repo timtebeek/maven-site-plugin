@@ -19,8 +19,7 @@ package org.apache.maven.plugins.site.deploy;
  * under the License.
  */
 
-import org.apache.maven.artifact.manager.WagonManager;
-//import org.apache.maven.wagon.repository.Repository;
+import org.apache.maven.wagon.Wagon;
 import org.codehaus.plexus.PlexusTestCase;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,7 +33,7 @@ import org.junit.runners.JUnit4;
 public class SiteDeployMojoTest
     extends PlexusTestCase
 {
-    private WagonManager wagonManager;
+    private Wagon wagon;
 
     //private Repository repository;
 
@@ -43,7 +42,7 @@ public class SiteDeployMojoTest
         throws Exception
     {
         super.setUp();
-        wagonManager = getContainer().lookup( WagonManager.class );
+        // wagon = getContainer().lookup( Wagon.class, "scp" );
         //repository = new Repository( "my-repository", "scp://repository-host/var/maven2" );
     }
 

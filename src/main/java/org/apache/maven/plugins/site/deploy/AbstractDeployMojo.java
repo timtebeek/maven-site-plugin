@@ -19,7 +19,6 @@ package org.apache.maven.plugins.site.deploy;
  * under the License.
  */
 
-import org.apache.maven.artifact.manager.WagonManager;
 import org.apache.maven.doxia.site.decoration.inheritance.URIPathDescriptor;
 import org.apache.maven.execution.MavenExecutionRequest;
 import org.apache.maven.execution.MavenSession;
@@ -42,7 +41,6 @@ import org.apache.maven.wagon.CommandExecutor;
 import org.apache.maven.wagon.ConnectionException;
 import org.apache.maven.wagon.ResourceDoesNotExistException;
 import org.apache.maven.wagon.TransferFailedException;
-import org.apache.maven.wagon.UnsupportedProtocolException;
 import org.apache.maven.wagon.Wagon;
 import org.apache.maven.wagon.authentication.AuthenticationException;
 import org.apache.maven.wagon.authentication.AuthenticationInfo;
@@ -50,7 +48,6 @@ import org.apache.maven.wagon.authorization.AuthorizationException;
 import org.apache.maven.wagon.observers.Debug;
 import org.apache.maven.wagon.proxy.ProxyInfo;
 import org.apache.maven.wagon.repository.Repository;
-import org.codehaus.plexus.PlexusConstants;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.component.configurator.ComponentConfigurationException;
 import org.codehaus.plexus.component.configurator.ComponentConfigurator;
@@ -58,9 +55,6 @@ import org.codehaus.plexus.component.repository.exception.ComponentLifecycleExce
 import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
 import org.codehaus.plexus.configuration.PlexusConfiguration;
 import org.codehaus.plexus.configuration.xml.XmlPlexusConfiguration;
-import org.codehaus.plexus.context.Context;
-import org.codehaus.plexus.context.ContextException;
-import org.codehaus.plexus.personality.plexus.lifecycle.phase.Contextualizable;
 import org.codehaus.plexus.util.StringUtils;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 
@@ -69,7 +63,8 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
+
+import static java.util.Locale.ENGLISH;
 
 /**
  * Abstract base class for deploy mojos.
@@ -80,7 +75,6 @@ import java.util.Set;
  */
 public abstract class AbstractDeployMojo
     extends AbstractSiteMojo
-    implements Contextualizable
 {
     /**
      * Directory containing the generated project sites and report distributions.
@@ -126,11 +120,6 @@ public abstract class AbstractDeployMojo
     private boolean skipDeploy;
 
     /**
-     */
-    @Component
-    private WagonManager wagonManager; // maven-compat
-
-    /**
      * The current user system settings for use in Maven.
      */
     @Parameter( defaultValue = "${settings}", readonly = true )
@@ -146,7 +135,12 @@ public abstract class AbstractDeployMojo
 
     private Site deploySite;
 
+    @Component
     private PlexusContainer container;
+
+    @Component
+    SettingsDecrypter settingsDecrypter;
+
 
     /**
      * {@inheritDoc}
@@ -298,13 +292,11 @@ public abstract class AbstractDeployMojo
         throws MojoExecutionException
     {
         // TODO: work on moving this into the deployer like the other deploy methods
-        final Wagon wagon = getWagon( repository, wagonManager );
+        final Wagon wagon = getWagon( repository );
 
         try
         {
             configureWagon( wagon, repository.getId(), settings, container, getLog() );
-
-            SettingsDecrypter settingsDecrypter = container.lookup( SettingsDecrypter.class );
 
             ProxyInfo proxyInfo = getProxy( repository, settingsDecrypter );
 
@@ -314,10 +306,6 @@ public abstract class AbstractDeployMojo
             {
                 chmod( wagon, repository, chmodOptions, chmodMode );
             }
-        }
-        catch ( ComponentLookupException cle )
-        {
-            throw new MojoExecutionException( "Unable to lookup SettingsDecrypter: " + cle.getMessage(), cle );
         }
         catch ( TransferFailedException e )
         {
@@ -336,63 +324,68 @@ public abstract class AbstractDeployMojo
         }
     }
 
-    private Wagon getWagon( final Repository repository, final WagonManager manager )
+    private Wagon getWagon( final Repository repository )
         throws MojoExecutionException
     {
-        final Wagon wagon;
-
+        String protocol = repository.getProtocol();
+        if ( protocol == null )
+        {
+            throw new MojoExecutionException( "Unspecified protocol" );
+        }
         try
         {
-            wagon = manager.getWagon( repository );
-        }
-        catch ( UnsupportedProtocolException e )
-        {
-            String shortMessage = "Unsupported protocol: '" + repository.getProtocol() + "' for site deployment to "
-                + "distributionManagement.site.url=" + repository.getUrl() + ".";
-            String longMessage =
-                "\n" + shortMessage + "\n" + "Currently supported protocols are: " + getSupportedProtocols() + ".\n"
-                    + "    Protocols may be added through wagon providers.\n" + "    For more information, see "
-                    + "https://maven.apache.org/plugins/maven-site-plugin/examples/adding-deploy-protocol.html";
-
-            getLog().error( longMessage );
-
-            throw new MojoExecutionException( shortMessage );
-        }
-        catch ( TransferFailedException e )
-        {
-            throw new MojoExecutionException( "Unable to configure Wagon: '" + repository.getProtocol() + "'", e );
-        }
-
-        if ( !wagon.supportsDirectoryCopy() )
-        {
-            throw new MojoExecutionException(
-                "Wagon protocol '" + repository.getProtocol() + "' doesn't support directory copying" );
-        }
-
-        return wagon;
-    }
-
-    private String getSupportedProtocols()
-    {
-        try
-        {
-            Set<String> protocols = container.lookupMap( Wagon.class ).keySet();
-
-            return StringUtils.join( protocols.iterator(), ", " );
-        }
+            Wagon wagon = container.lookup( Wagon.class, protocol.toLowerCase( ENGLISH ) );
+            if ( !wagon.supportsDirectoryCopy() )
+            {
+                throw new MojoExecutionException(
+                        "Wagon protocol '" + repository.getProtocol() + "' doesn't support directory copying" );
+            }
+            return wagon;
+       }
         catch ( ComponentLookupException e )
         {
-            // in the unexpected case there is a problem when instantiating a wagon provider
-            getLog().error( e );
+            throw new MojoExecutionException( "Cannot find wagon which supports the requested protocol: "
+                    + protocol, e );
         }
-        return "";
+    }
+
+    public AuthenticationInfo getAuthenticationInfo( String id )
+    {
+        if ( id != null )
+        {
+                List<Server> servers = settings.getServers();
+
+                if ( servers != null )
+                {
+                    for ( Server server : servers )
+                    {
+                        if ( id.equalsIgnoreCase( server.getId() ) )
+                        {
+                            SettingsDecryptionResult result =
+                                    settingsDecrypter.decrypt( new DefaultSettingsDecryptionRequest( server ) );
+                            server = result.getServer();
+
+                            AuthenticationInfo authInfo = new AuthenticationInfo();
+                            authInfo.setUserName( server.getUsername() );
+                            authInfo.setPassword( server.getPassword() );
+                            authInfo.setPrivateKey( server.getPrivateKey() );
+                            authInfo.setPassphrase( server.getPassphrase() );
+
+                            return authInfo;
+                        }
+                    }
+            }
+        }
+
+        // empty one to prevent NPE
+        return new AuthenticationInfo();
     }
 
     private void push( final File inputDirectory, final Repository repository, final Wagon wagon,
                        final ProxyInfo proxyInfo, final List<Locale> localesList, final String relativeDir )
         throws MojoExecutionException
     {
-        AuthenticationInfo authenticationInfo = wagonManager.getAuthenticationInfo( repository.getId() );
+        AuthenticationInfo authenticationInfo = getAuthenticationInfo( repository.getId() );
         getLog().debug( "authenticationInfo with id '" + repository.getId() + "': "
                             + ( ( authenticationInfo == null ) ? "-" : authenticationInfo.getUserName() ) );
 
@@ -412,7 +405,7 @@ public abstract class AbstractDeployMojo
                 getLog().debug( "connect with proxyInfo" );
                 wagon.connect( repository, authenticationInfo, proxyInfo );
             }
-            else if ( proxyInfo == null && authenticationInfo != null )
+            else if ( authenticationInfo != null )
             {
                 getLog().debug( "connect with authenticationInfo and without proxyInfo" );
                 wagon.connect( repository, authenticationInfo );
@@ -472,71 +465,6 @@ public abstract class AbstractDeployMojo
         {
             throw new MojoExecutionException( "Error uploading site", e );
         }
-    }
-
-    /**
-     * Get proxy information.
-     * <p>
-     * Get the <code>ProxyInfo</code> of the proxy associated with the <code>host</code>
-     * and the <code>protocol</code> of the given <code>repository</code>.
-     * </p>
-     * <p>
-     * Extract from <a href="https://docs.oracle.com/javase/1.5.0/docs/guide/net/properties.html">
-     * J2SE Doc : Networking Properties - nonProxyHosts</a> : "The value can be a list of hosts,
-     * each separated by a |, and in addition a wildcard character (*) can be used for matching"
-     * </p>
-     * <p>
-     * Defensively support comma (",") and semi colon (";") in addition to pipe ("|") as separator.
-     * </p>
-     *
-     * @param repository   the Repository to extract the ProxyInfo from
-     * @param wagonManager the WagonManager used to connect to the Repository
-     * @return a ProxyInfo object instantiated or <code>null</code> if no matching proxy is found
-     */
-    public static ProxyInfo getProxyInfo( Repository repository, WagonManager wagonManager )
-    {
-        ProxyInfo proxyInfo = wagonManager.getProxy( repository.getProtocol() );
-
-        if ( proxyInfo == null )
-        {
-            return null;
-        }
-
-        String host = repository.getHost();
-        String nonProxyHostsAsString = proxyInfo.getNonProxyHosts();
-        for ( String nonProxyHost : StringUtils.split( nonProxyHostsAsString, ",;|" ) )
-        {
-            if ( StringUtils.contains( nonProxyHost, "*" ) )
-            {
-                // Handle wildcard at the end, beginning or middle of the nonProxyHost
-                final int pos = nonProxyHost.indexOf( '*' );
-                String nonProxyHostPrefix = nonProxyHost.substring( 0, pos );
-                String nonProxyHostSuffix = nonProxyHost.substring( pos + 1 );
-                // prefix*
-                if ( StringUtils.isNotEmpty( nonProxyHostPrefix ) && host.startsWith( nonProxyHostPrefix )
-                    && StringUtils.isEmpty( nonProxyHostSuffix ) )
-                {
-                    return null;
-                }
-                // *suffix
-                if ( StringUtils.isEmpty( nonProxyHostPrefix ) && StringUtils.isNotEmpty( nonProxyHostSuffix )
-                    && host.endsWith( nonProxyHostSuffix ) )
-                {
-                    return null;
-                }
-                // prefix*suffix
-                if ( StringUtils.isNotEmpty( nonProxyHostPrefix ) && host.startsWith( nonProxyHostPrefix )
-                    && StringUtils.isNotEmpty( nonProxyHostSuffix ) && host.endsWith( nonProxyHostSuffix ) )
-                {
-                    return null;
-                }
-            }
-            else if ( host.equals( nonProxyHost ) )
-            {
-                return null;
-            }
-        }
-        return proxyInfo;
     }
 
     /**
@@ -626,7 +554,7 @@ public abstract class AbstractDeployMojo
     /**
      * Configure the Wagon with the information from serverConfigurationMap ( which comes from settings.xml )
      *
-     * @todo Remove when {@link WagonManager#getWagon(Repository) is available}. It's available in Maven 2.0.5.
+     * @todo Remove when {@link WagonManager#getWagon(String) is available}. It's available in Maven 2.0.5.
      */
     private static void configureWagon( Wagon wagon, String repositoryId, Settings settings, PlexusContainer container,
                                         Log log )
@@ -680,15 +608,6 @@ public abstract class AbstractDeployMojo
                 }
             }
         }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public void contextualize( Context context )
-        throws ContextException
-    {
-        container = (PlexusContainer) context.get( PlexusConstants.PLEXUS_KEY );
     }
 
     /**
