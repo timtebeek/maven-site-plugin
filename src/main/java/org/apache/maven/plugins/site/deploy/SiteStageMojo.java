@@ -1,3 +1,21 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.maven.plugins.site.deploy;
 
 /*
@@ -43,10 +61,8 @@ import org.apache.maven.project.MavenProject;
  *
  * @since 2.0
  */
-@Mojo( name = "stage", requiresDependencyResolution = ResolutionScope.TEST )
-public class SiteStageMojo
-    extends AbstractStagingMojo
-{
+@Mojo(name = "stage", requiresDependencyResolution = ResolutionScope.TEST)
+public class SiteStageMojo extends AbstractStagingMojo {
     /**
      * Staging directory location. This needs to be an absolute path, like
      * <code>C:\stagingArea\myProject\</code> on Windows or
@@ -55,16 +71,13 @@ public class SiteStageMojo
      *
      * @since 2.3
      */
-    @Parameter( property = "stagingDirectory" )
+    @Parameter(property = "stagingDirectory")
     private File stagingDirectory;
 
     @Override
-    public void execute()
-        throws MojoExecutionException
-    {
-        if ( skip )
-        {
-            getLog().info( "maven.site.skip = true: Skipping site staging" );
+    public void execute() throws MojoExecutionException {
+        if (skip) {
+            getLog().info("maven.site.skip = true: Skipping site staging");
             return;
         }
 
@@ -72,28 +85,24 @@ public class SiteStageMojo
     }
 
     @Override
-    protected boolean isDeploy()
-    {
+    protected boolean isDeploy() {
         return false;
     }
 
     @Override
-    protected Site determineDeploySite()
-        throws MojoExecutionException
-    {
+    protected Site determineDeploySite() throws MojoExecutionException {
         Site staging = new Site();
-        staging.setId( "stagingLocal" );
+        staging.setId("stagingLocal");
 
         final File outputDirectory = determineStagingDirectory();
-        getLog().info( "Using this base directory for staging: " + outputDirectory );
+        getLog().info("Using this base directory for staging: " + outputDirectory);
 
         // Safety
-        if ( !outputDirectory.exists() )
-        {
+        if (!outputDirectory.exists()) {
             outputDirectory.mkdirs();
         }
 
-        staging.setUrl( "file://" + outputDirectory.getAbsolutePath() );
+        staging.setUrl("file://" + outputDirectory.getAbsolutePath());
 
         return staging;
     }
@@ -103,19 +112,16 @@ public class SiteStageMojo
      *
      * @return the directory for staging
      */
-    private File determineStagingDirectory()
-    {
-        if ( stagingDirectory != null )
-        {
+    private File determineStagingDirectory() {
+        if (stagingDirectory != null) {
             // the user has specified a stagingDirectory - use it
-            getLog().debug( "stagingDirectory specified by the user: " + stagingDirectory );
+            getLog().debug("stagingDirectory specified by the user: " + stagingDirectory);
             return stagingDirectory;
         }
 
         // The user didn't specify a URL: calculate default in the execution root target dir
-        File defaultStagingDirectory = new File( getExecutionRootBuildDirectory(), DEFAULT_STAGING_DIRECTORY );
-        getLog().debug( "stagingDirectory NOT specified, using the execution root project: "
-                        + defaultStagingDirectory );
+        File defaultStagingDirectory = new File(getExecutionRootBuildDirectory(), DEFAULT_STAGING_DIRECTORY);
+        getLog().debug("stagingDirectory NOT specified, using the execution root project: " + defaultStagingDirectory);
         return defaultStagingDirectory;
     }
 
@@ -125,26 +131,22 @@ public class SiteStageMojo
      *
      * @return the build directory of the execution root project.
      */
-    protected File getExecutionRootBuildDirectory()
-    {
+    protected File getExecutionRootBuildDirectory() {
         // Find the top level project in the reactor
-        final MavenProject executionRootProject = getExecutionRootProject( reactorProjects );
+        final MavenProject executionRootProject = getExecutionRootProject(reactorProjects);
 
         // Use the top level project's build directory if there is one, otherwise use this project's build directory
         final File buildDirectory;
 
-        if ( executionRootProject == null )
-        {
-            getLog().debug( "No execution root project found in the reactor, using the current project." );
+        if (executionRootProject == null) {
+            getLog().debug("No execution root project found in the reactor, using the current project.");
 
-            buildDirectory = new File( project.getBuild().getDirectory() );
-        }
-        else
-        {
-            getLog().debug( "Using the execution root project found in the reactor: "
-                            + executionRootProject.getArtifactId() );
+            buildDirectory = new File(project.getBuild().getDirectory());
+        } else {
+            getLog().debug("Using the execution root project found in the reactor: "
+                    + executionRootProject.getArtifactId());
 
-            buildDirectory = new File( executionRootProject.getBuild().getDirectory() );
+            buildDirectory = new File(executionRootProject.getBuild().getDirectory());
         }
 
         return buildDirectory;
@@ -157,18 +159,14 @@ public class SiteStageMojo
      *            returned.
      * @return The execution root project in the reactor, or <code>null</code> if none can be found
      */
-    private static MavenProject getExecutionRootProject( List<MavenProject> reactorProjects )
-    {
-        if ( reactorProjects == null )
-        {
+    private static MavenProject getExecutionRootProject(List<MavenProject> reactorProjects) {
+        if (reactorProjects == null) {
             return null;
         }
 
         // todo Lambda Java 1.8
-        for ( MavenProject reactorProject : reactorProjects )
-        {
-            if ( reactorProject.isExecutionRoot() )
-            {
+        for (MavenProject reactorProject : reactorProjects) {
+            if (reactorProject.isExecutionRoot()) {
                 return reactorProject;
             }
         }

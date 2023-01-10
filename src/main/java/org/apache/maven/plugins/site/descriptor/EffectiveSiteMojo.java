@@ -1,3 +1,21 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.maven.plugins.site.descriptor;
 
 /*
@@ -19,6 +37,11 @@ package org.apache.maven.plugins.site.descriptor;
  * under the License.
  */
 
+import java.io.File;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.io.Writer;
+
 import org.apache.maven.doxia.site.decoration.DecorationModel;
 import org.apache.maven.doxia.site.decoration.io.xpp3.DecorationXpp3Writer;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -31,11 +54,6 @@ import org.codehaus.plexus.util.xml.PrettyPrintXMLWriter;
 import org.codehaus.plexus.util.xml.XMLWriter;
 import org.codehaus.plexus.util.xml.XmlWriterUtil;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.StringWriter;
-import java.io.Writer;
-
 /**
  * Displays the effective site descriptor as an XML for this build, after inheritance and interpolation of
  * <code>site.xml</code>, for the first locale.
@@ -44,65 +62,55 @@ import java.io.Writer;
  *
  * @since 2.2
  */
-@Mojo( name = "effective-site", requiresReports = true )
-public class EffectiveSiteMojo
-    extends AbstractSiteDescriptorMojo
-{
+@Mojo(name = "effective-site", requiresReports = true)
+public class EffectiveSiteMojo extends AbstractSiteDescriptorMojo {
     /**
      * Optional parameter to write the output of this help in a given file, instead of writing to the console.
      * <p>
      * <b>Note</b>: Could be a relative path.
      * </p>
      */
-    @Parameter( property = "output" )
+    @Parameter(property = "output")
     protected File output;
 
     /**
      * {@inheritDoc}
      */
-    public void execute()
-        throws MojoExecutionException, MojoFailureException
-    {
-        DecorationModel decorationModel = prepareDecorationModel( getLocales().get( 0 ) );
+    public void execute() throws MojoExecutionException, MojoFailureException {
+        DecorationModel decorationModel = prepareDecorationModel(getLocales().get(0));
 
         StringWriter w = new StringWriter();
-        XMLWriter writer =
-            new PrettyPrintXMLWriter( w, StringUtils.repeat( " ", XmlWriterUtil.DEFAULT_INDENTATION_SIZE ),
-                                      decorationModel.getModelEncoding(), null );
+        XMLWriter writer = new PrettyPrintXMLWriter(
+                w,
+                StringUtils.repeat(" ", XmlWriterUtil.DEFAULT_INDENTATION_SIZE),
+                decorationModel.getModelEncoding(),
+                null);
 
-        writeHeader( writer );
+        writeHeader(writer);
 
-        writeEffectiveSite( decorationModel, writer );
+        writeEffectiveSite(decorationModel, writer);
 
         String effectiveSite = w.toString();
 
-        if ( output != null )
-        {
-            try
-            {
-                writeXmlFile( output, effectiveSite );
-            }
-            catch ( IOException e )
-            {
-                throw new MojoExecutionException( "Cannot write effective site descriptor to output: " + output, e );
+        if (output != null) {
+            try {
+                writeXmlFile(output, effectiveSite);
+            } catch (IOException e) {
+                throw new MojoExecutionException("Cannot write effective site descriptor to output: " + output, e);
             }
 
-            if ( getLog().isInfoEnabled() )
-            {
-                getLog().info( "Effective site descriptor written to: " + output );
+            if (getLog().isInfoEnabled()) {
+                getLog().info("Effective site descriptor written to: " + output);
             }
-        }
-        else
-        {
+        } else {
             StringBuilder message = new StringBuilder();
 
-            message.append( "\nEffective site descriptor, after inheritance and interpolation:\n\n" );
-            message.append( effectiveSite );
-            message.append( "\n" );
+            message.append("\nEffective site descriptor, after inheritance and interpolation:\n\n");
+            message.append(effectiveSite);
+            message.append("\n");
 
-            if ( getLog().isInfoEnabled() )
-            {
-                getLog().info( message.toString() );
+            if (getLog().isInfoEnabled()) {
+                getLog().info(message.toString());
             }
         }
     }
@@ -112,16 +120,15 @@ public class EffectiveSiteMojo
      *
      * @param writer not null
      */
-    protected static void writeHeader( XMLWriter writer )
-    {
-        XmlWriterUtil.writeCommentLineBreak( writer );
-        XmlWriterUtil.writeComment( writer, " " );
-        XmlWriterUtil.writeComment( writer, "Generated by Maven Site Plugin" );
-        XmlWriterUtil.writeComment( writer, "See: http://maven.apache.org/plugins/maven-site-plugin/" );
-        XmlWriterUtil.writeComment( writer, " " );
-        XmlWriterUtil.writeCommentLineBreak( writer );
+    protected static void writeHeader(XMLWriter writer) {
+        XmlWriterUtil.writeCommentLineBreak(writer);
+        XmlWriterUtil.writeComment(writer, " ");
+        XmlWriterUtil.writeComment(writer, "Generated by Maven Site Plugin");
+        XmlWriterUtil.writeComment(writer, "See: http://maven.apache.org/plugins/maven-site-plugin/");
+        XmlWriterUtil.writeComment(writer, " ");
+        XmlWriterUtil.writeCommentLineBreak(writer);
 
-        XmlWriterUtil.writeLineBreak( writer );
+        XmlWriterUtil.writeLineBreak(writer);
     }
 
     /**
@@ -130,49 +137,40 @@ public class EffectiveSiteMojo
      * @param writer not null
      * @param comment not null
      */
-    protected static void writeComment( XMLWriter writer, String comment )
-    {
-        XmlWriterUtil.writeCommentLineBreak( writer );
-        XmlWriterUtil.writeComment( writer, " " );
-        XmlWriterUtil.writeComment( writer, comment );
-        XmlWriterUtil.writeComment( writer, " " );
-        XmlWriterUtil.writeCommentLineBreak( writer );
+    protected static void writeComment(XMLWriter writer, String comment) {
+        XmlWriterUtil.writeCommentLineBreak(writer);
+        XmlWriterUtil.writeComment(writer, " ");
+        XmlWriterUtil.writeComment(writer, comment);
+        XmlWriterUtil.writeComment(writer, " ");
+        XmlWriterUtil.writeCommentLineBreak(writer);
 
-        XmlWriterUtil.writeLineBreak( writer );
+        XmlWriterUtil.writeLineBreak(writer);
     }
 
-    private void writeEffectiveSite( DecorationModel decorationModel, XMLWriter writer )
-        throws MojoExecutionException
-    {
+    private void writeEffectiveSite(DecorationModel decorationModel, XMLWriter writer) throws MojoExecutionException {
         String effectiveSite;
 
         StringWriter sWriter = new StringWriter();
         DecorationXpp3Writer siteWriter = new DecorationXpp3Writer();
-        try
-        {
-            siteWriter.write( sWriter, decorationModel );
-        }
-        catch ( IOException e )
-        {
-            throw new MojoExecutionException( "Cannot serialize site descriptor to XML.", e );
+        try {
+            siteWriter.write(sWriter, decorationModel);
+        } catch (IOException e) {
+            throw new MojoExecutionException("Cannot serialize site descriptor to XML.", e);
         }
 
         effectiveSite = sWriter.toString();
-        effectiveSite = effectiveSite.substring( effectiveSite.indexOf( "<project " ) ); // remove "<?xml" header
+        effectiveSite = effectiveSite.substring(effectiveSite.indexOf("<project ")); // remove "<?xml" header
 
-        writeComment( writer, "Effective site descriptor for project \'" + project.getId() + "\'" );
+        writeComment(writer, "Effective site descriptor for project \'" + project.getId() + "\'");
 
-        writer.writeMarkup( effectiveSite );
+        writer.writeMarkup(effectiveSite);
     }
 
-    protected static void writeXmlFile( File output, String content )
-        throws IOException
-    {
-        try ( Writer out = WriterFactory.newXmlWriter( output ) )
-        {
+    protected static void writeXmlFile(File output, String content) throws IOException {
+        try (Writer out = WriterFactory.newXmlWriter(output)) {
             output.getParentFile().mkdirs();
 
-            out.write( content );
+            out.write(content);
         }
     }
 }
